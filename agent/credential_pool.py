@@ -1192,6 +1192,9 @@ class CredentialPool:
                 refreshed = auth_mod.refresh_codex_oauth_pure(
                     entry.access_token,
                     entry.refresh_token,
+                    timeout_seconds=auth_mod.env_float(
+                        "HERMES_CODEX_REFRESH_TIMEOUT_SECONDS", 20
+                    ),
                 )
                 updated = replace(
                     entry,

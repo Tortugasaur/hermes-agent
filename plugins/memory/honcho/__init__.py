@@ -29,6 +29,19 @@ from tools.registry import tool_error
 logger = logging.getLogger(__name__)
 
 
+_INTERNAL_TURN_PREFIXES = (
+    "[ASYNC DELEGATION BATCH COMPLETE",
+    "[CONTEXT COMPACTION — REFERENCE ONLY]",
+    "[Your active task list was preserved across context compression]",
+)
+
+
+def _is_internal_orchestration_turn(user_content: str) -> bool:
+    """Return True for synthetic runtime events that are not user-authored facts."""
+    content = (user_content or "").lstrip()
+    return any(content.startswith(prefix) for prefix in _INTERNAL_TURN_PREFIXES)
+
+
 # ---------------------------------------------------------------------------
 # Tool schemas (moved from tools/honcho_tools.py)
 # ---------------------------------------------------------------------------
@@ -1337,6 +1350,10 @@ class HonchoMemoryProvider(MemoryProvider):
             return
         if not self._session_ready():
             self._start_session_init_background()
+            return
+
+        if _is_internal_orchestration_turn(user_content):
+            logger.debug("Honcho sync_turn skipped internal orchestration event")
             return
 
         msg_limit = self._config.message_max_chars if self._config else 25000

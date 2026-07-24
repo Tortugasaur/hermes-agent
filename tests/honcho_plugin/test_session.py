@@ -814,6 +814,24 @@ class TestConcludeToolDispatch:
         assert session.add_message.call_args_list[0].args == ("user", "hello")
         assert session.add_message.call_args_list[1].args == ("assistant", "Visible answer")
 
+    def test_sync_turn_skips_internal_orchestration_turns(self):
+        internal_turns = [
+            "[ASYNC DELEGATION BATCH COMPLETE — deleg_test]\nworker output",
+            "[CONTEXT COMPACTION — REFERENCE ONLY] compacted state",
+            "[Your active task list was preserved across context compression]\n- task",
+        ]
+        for internal_user_content in internal_turns:
+            provider = HonchoMemoryProvider()
+            provider._session_key = "desktop:test"
+            provider._manager = MagicMock()
+            provider._cron_skipped = False
+            provider._config = SimpleNamespace(message_max_chars=25000)
+
+            provider.sync_turn(internal_user_content, "Internal event acknowledged")
+
+            provider._manager.get_or_create.assert_not_called()
+            assert provider._sync_thread is None
+
 
 # ---------------------------------------------------------------------------
 # Message chunking

@@ -302,6 +302,7 @@ def test_codex_pool_refresh_holds_auth_store_lock_across_post(monkeypatch, tmp_p
     monkeypatch.setenv("HOME", str(tmp_path / "not-the-root"))
 
     lock_held: dict = {"during_post": None}
+    refresh_kwargs: dict = {}
     real_lock = A._auth_store_lock
 
     depth = {"n": 0}
@@ -324,6 +325,7 @@ def test_codex_pool_refresh_holds_auth_store_lock_across_post(monkeypatch, tmp_p
     def fake_refresh(access_token, refresh_token, **kwargs):
         # The POST to the token endpoint must happen with the lock held.
         lock_held["during_post"] = depth["n"] > 0
+        refresh_kwargs.update(kwargs)
         return {
             "access_token": "rotated-access",
             "refresh_token": "rotated-refresh",
@@ -331,6 +333,7 @@ def test_codex_pool_refresh_holds_auth_store_lock_across_post(monkeypatch, tmp_p
         }
 
     monkeypatch.setattr(A, "refresh_codex_oauth_pure", fake_refresh)
+    monkeypatch.setenv("HERMES_CODEX_REFRESH_TIMEOUT_SECONDS", "7.5")
 
     entry = _entry(
         provider,
@@ -347,4 +350,5 @@ def test_codex_pool_refresh_holds_auth_store_lock_across_post(monkeypatch, tmp_p
     assert refreshed.refresh_token == "rotated-refresh"
     # The invariant: the single-use token POST ran inside the auth-store lock.
     assert lock_held["during_post"] is True
+    assert refresh_kwargs["timeout_seconds"] == 7.5
 
